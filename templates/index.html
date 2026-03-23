@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TC-Test Calculator</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+    <div class="container">
+        <div class="hero-banner">
+            <div class="hero-banner-content">
+                <h1>TC-Test Analyzer</h1>
+            </div>
+        </div>
+
+        <section>
+            <h2>Analyze Test Data</h2>
+            <form action="/analyze" method="post" enctype="multipart/form-data">
+                <div class="field-row compact-field">
+                    <label>Data Source:</label>
+                    <select id="data_method" name="data_method" required>
+                        <option value="CSV">CSV</option>
+                        <option value="API">API</option>
+                    </select>
+                </div>
+
+                <div id="csv_fields" class="field-row compact-field">
+                    <label>Upload CSV/XLSX File:</label>
+                    <input type="file" id="csv_file" name="csv_file" accept=".csv,.xlsx">
+                </div>
+
+                <div id="api_fields" class="field-row compact-field hidden">
+                    <label>API Start Date:</label>
+                    <input type="date" id="api_start_date" name="api_start_date">
+                    <label>API End Date:</label>
+                    <input type="date" id="api_end_date" name="api_end_date">
+                    <small class="muted-note">
+                        Date range is inclusive: start date begins at 12:00 AM and end date runs through 11:59 PM.
+                    </small>
+                </div>
+
+                <div class="field-row compact-field">
+                    <label>Calculation Type:</label>
+                    <select name="calc_type" required>
+                        <option value="METERED">METERED</option>
+                        <option value="THEORETICAL">THEORETICAL</option>
+                        <option value="GLD">GLD</option>
+                    </select>
+                </div>
+
+                <div class="field-row">
+                    <label>Rock Formation Distribution:</label>
+                    <small class="muted-note">
+                        Sections must be continuous and start at 0 depth (no gaps or overlaps).
+                    </small>
+                    <div id="formation_rows"></div>
+                    <div class="formation-actions">
+                        <button type="button" id="add_formation_btn">Add Formation Section</button>
+                    </div>
+                </div>
+
+                <button type="submit">Analyze</button>
+            </form>
+        </section>
+    </div>
+
+    <script id="formation-options" type="application/json">{{ formation_options|tojson }}</script>
+    <script>
+        const dataMethod = document.getElementById("data_method");
+        const csvFields = document.getElementById("csv_fields");
+        const apiFields = document.getElementById("api_fields");
+        const csvInput = document.getElementById("csv_file");
+        const apiStartDateInput = document.getElementById("api_start_date");
+        const apiEndDateInput = document.getElementById("api_end_date");
+        const formationRows = document.getElementById("formation_rows");
+        const addFormationBtn = document.getElementById("add_formation_btn");
+        const formationOptions = JSON.parse(document.getElementById("formation-options").textContent);
+
+        function buildFormationOptions() {
+            return formationOptions
+                .map((name) => `<option value="${name}">${name}</option>`)
+                .join("");
+        }
+
+        function addFormationRow() {
+            const row = document.createElement("div");
+            row.className = "formation-row";
+            row.innerHTML = `
+                <select name="formation_name[]" required>
+                    ${buildFormationOptions()}
+                </select>
+                <input type="number" name="start_depth[]" placeholder="Start depth" step="any" min="0" required>
+                <input type="number" name="end_depth[]" placeholder="End depth" step="any" min="0" required>
+                <button type="button" class="remove-row-btn">Remove</button>
+            `;
+            row.querySelector(".remove-row-btn").addEventListener("click", () => {
+                if (formationRows.children.length > 1) {
+                    row.remove();
+                }
+            });
+            formationRows.appendChild(row);
+        }
+
+        function updateSourceFields() {
+            const useCsv = dataMethod.value === "CSV";
+            csvFields.classList.toggle("hidden", !useCsv);
+            apiFields.classList.toggle("hidden", useCsv);
+
+            csvInput.required = useCsv;
+            apiStartDateInput.required = !useCsv;
+            apiEndDateInput.required = !useCsv;
+        }
+
+        dataMethod.addEventListener("change", updateSourceFields);
+        addFormationBtn.addEventListener("click", addFormationRow);
+
+        addFormationRow();
+        updateSourceFields();
+    </script>
+</body>
+</html>
