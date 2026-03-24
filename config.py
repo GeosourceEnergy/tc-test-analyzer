@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import numpy as np
-import json
 from zoneinfo import ZoneInfo
 toronto = ZoneInfo('America/Toronto')
 
@@ -25,7 +24,74 @@ SENSOR_MAP = {
     'ScaledCurrent':'20536129-2',
     'ScaledSeries':'21433559-1',
 }
-ROCK_FORMATIONS = {}
+
+ROCK_FORMATIONS = {
+    "Shale": {
+        "density_lbft3": 169,      # from CSV: 169 lbs/ft³ (2.7 g/cm³ × 62.4)
+        "tc_btu": 1.45,            # from Roberts Field reference
+        "cp_btu": 0.21             # from Roberts Field reference
+    },
+    "Limestone": {
+        "density_lbft3": 162,      # from CSV: 162 lbs/ft³ (2.6 g/cm³ × 62.4)
+        "tc_btu": 1.74,            # from Table 2.2 (Kappelmeyer 1974)
+        "cp_btu": 0.20             # from Table 2.7 (851 J/kg·C → 0.203 BTU/lb·F)
+    },
+    "Dolomite": {
+        "density_lbft3": 177,      # from CSV: 177 lbs/ft³ (2.83 g/cm³ × 62.4)
+        "tc_btu": 2.88,            # from Table 2.2
+        "cp_btu": 0.19             # from Table 2.7 (802 J/kg·C → 0.191 BTU/lb·F)
+    },
+    "Sandstone": {
+        "density_lbft3": 165,      # from CSV: ~165 lbs/ft³ (2.64 g/cm³ × 62.4)
+        "tc_btu": 3.29,            # from Table 2.2 (Quartz Sandstone, Parallel)
+        "cp_btu": 0.17             # from engineeringtoolbox reference (710 J/kg·C → 0.17)
+    },
+    "Quartzite_Schist": {
+        "density_lbft3": 169,      # from Table 2.7: 2.71 g/cm³ × 62.4 = 169
+        "tc_btu": 2.42,            # 4.19 W/mK × 0.577789 = 2.42 BTU/hr·ft·F
+        "cp_btu": 0.20             # 858 J/kg·C × 0.000238846 = 0.205 BTU/lb·F
+    },
+    "Clay": {
+        "density_lbft3": 130,      # from CSV: 2.08 g/cm³ × 62.4 = 130
+        "tc_btu": 0.82,            # from Table 2.7 (Chalk as proxy for clay)
+        "cp_btu": 0.51             # from Table 2.7 (2127 J/kg·C → 0.508 BTU/lb·F)
+    },
+    "Sand": {
+        "density_lbft3": 120,      # from Roberts Field reference
+        "tc_btu": 1.10,            # from Roberts Field reference
+        "cp_btu": 0.20             # from Roberts Field reference
+    },
+    "Gravel": {
+        "density_lbft3": 125,      # from Roberts Field reference
+        "tc_btu": 1.15,            # from Roberts Field reference
+        "cp_btu": 0.20             # from Roberts Field reference
+    },
+    "Marl": {
+        "density_lbft3": 123,      # from CSV: 1.97 g/cm³ × 62.4 = 123
+        "tc_btu": 0.80,            # from Table 2.7 (1.38 W/mK × 0.577789)
+        "cp_btu": 0.41             # from Table 2.7 (1734 J/kg·C → 0.414 BTU/lb·F)
+    },
+    "Siltstone": {
+        "density_lbft3": 160,      # from CSV: 2.566 g/cm³ × 62.4 = 160
+        "tc_btu": 1.28,            # 2.22 W/mK × 0.577789 = 1.28
+        "cp_btu": 0.19             # 795 J/kg·C × 0.000238846 = 0.19
+    },
+    "Mudstone": {
+        "density_lbft3": 160,      # from CSV: 2.555 g/cm³ × 62.4 = 159.5
+        "tc_btu": 1.30,            # 2.25 W/mK × 0.577789 = 1.30
+        "cp_btu": 0.20             # 838 J/kg·C × 0.000238846 = 0.20
+    },
+    "Argillite": {
+        "density_lbft3": 160,      # from CSV: 2.555 g/cm³ × 62.4 = 159.5
+        "tc_btu": 1.30,            # same as mudstone basically
+        "cp_btu": 0.20
+    },
+    "Halite": {
+        "density_lbft3": 135,      # from CSV: 2.16 g/cm³ × 62.4 = 135
+        "tc_btu": 3.53,            # from Table 2.2 (6.11 W/mK × 0.577789)
+        "cp_btu": 0.21             # 880 J/kg·C × 0.000238846 = 0.21
+    }
+}
 
 #constants
 LOOP_CS_AREA = 0.010058354
@@ -160,8 +226,6 @@ def get_density(temp_c):
 
 # Rock Formation Thermal Properties Database
 # Units:density_lbft3 = lbs/ft³, tc_btu = BTU/hr·ft·F, cp_btu = BTU/lbm·F
-with open('rock_formations.json') as f:
-    ROCK_FORMATIONS = json.load(f)
 
 def get_formation(name):
     """Get thermal properties for a rock formation by name."""

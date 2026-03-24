@@ -48,7 +48,7 @@ def get_elapsed_seconds(records):
 def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIBUTION, START_DATE, END_DATE):
     
     if data_method == 'CSV':
-        from csv_parser import parse_licor_csv
+        from services.csv_parser import parse_licor_csv
         data = parse_licor_csv(csv_file_path)
     elif data_method == 'API':
         devices = fetch_devices()
