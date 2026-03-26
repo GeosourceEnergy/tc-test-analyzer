@@ -1,8 +1,9 @@
 import os
-import json
-from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import secrets
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
 from services.process import process
@@ -61,16 +62,10 @@ def analyze():
                 return jsonify({'error': 'no file selected'}), 400
             
             if file:
-                # delete old files before saving new one
-                for old_file in os.listdir(app.config['UPLOAD_FOLDER']):
-                    old_path = os.path.join(app.config['UPLOAD_FOLDER'], old_file)
-                    
-                    try:
-                        os.remove(old_path)
-                    except:
-                        pass
-                
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+                original_filename = file.filename
+                suffix = Path(original_filename).suffix or ".csv"
+                unique_filename = f'{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{secrets.token_hex(4)}{suffix}'
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(filepath)
                 
                 results = process(
@@ -83,6 +78,11 @@ def analyze():
                     START_DATE=None,
                     END_DATE=None
                 )
+
+                try:
+                    os.remove(filepath)
+                except:
+                    pass
             
                 if isinstance(results, str):
                     return jsonify({'error': results}), 400
@@ -101,8 +101,6 @@ def analyze():
             if not start_date or not end_date:
                 return jsonify({'error': 'Start date and end date are required'}), 400
             #convert datetime-local strings to timestamps (milliseconds)
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
             
             toronto = ZoneInfo('America/Toronto')
             
@@ -139,9 +137,7 @@ def analyze():
         return jsonify({'error': str(e)}), 500
         
 
-
 if __name__ == "__main__":
-    if __name__ == "__main__":
-        import os
-        port = int(os.environ.get("PORT", 5000))
-        app.run(host="0.0.0.0", port=port, debug=False)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
