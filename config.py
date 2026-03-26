@@ -27,79 +27,64 @@ SENSOR_MAP = {
 
 ROCK_FORMATIONS = {
     "Shale": {
-        "density_lbft3": 169,      # from CSV: 169 lbs/ft³ (2.7 g/cm³ × 62.4)
-        "tc_btu": 1.45,            # from Roberts Field reference
+        "density_lbft3": 160,      # from CSV: 169 lbs/ft³ (2.7 g/cm³ × 62.4)
         "cp_btu": 0.21             # from Roberts Field reference
     },
     "Limestone": {
         "density_lbft3": 162,      # from CSV: 162 lbs/ft³ (2.6 g/cm³ × 62.4)
-        "tc_btu": 1.74,            # from Table 2.2 (Kappelmeyer 1974)
         "cp_btu": 0.20             # from Table 2.7 (851 J/kg·C → 0.203 BTU/lb·F)
     },
     "Dolomite": {
         "density_lbft3": 177,      # from CSV: 177 lbs/ft³ (2.83 g/cm³ × 62.4)
-        "tc_btu": 2.88,            # from Table 2.2
         "cp_btu": 0.19             # from Table 2.7 (802 J/kg·C → 0.191 BTU/lb·F)
     },
     "Sandstone": {
         "density_lbft3": 165,      # from CSV: ~165 lbs/ft³ (2.64 g/cm³ × 62.4)
-        "tc_btu": 3.29,            # from Table 2.2 (Quartz Sandstone, Parallel)
         "cp_btu": 0.17             # from engineeringtoolbox reference (710 J/kg·C → 0.17)
     },
-    "Quartzite_Schist": {
-        "density_lbft3": 169,      # from Table 2.7: 2.71 g/cm³ × 62.4 = 169
-        "tc_btu": 2.42,            # 4.19 W/mK × 0.577789 = 2.42 BTU/hr·ft·F
+    "Quartzite": {
+        "density_lbft3": 145,      # from Table 2.7: 2.71 g/cm³ × 62.4 = 169
         "cp_btu": 0.20             # 858 J/kg·C × 0.000238846 = 0.205 BTU/lb·F
     },
     "Clay": {
         "density_lbft3": 130,      # from CSV: 2.08 g/cm³ × 62.4 = 130
-        "tc_btu": 0.82,            # from Table 2.7 (Chalk as proxy for clay)
         "cp_btu": 0.51             # from Table 2.7 (2127 J/kg·C → 0.508 BTU/lb·F)
     },
     "Sand": {
-        "density_lbft3": 120,      # from Roberts Field reference
-        "tc_btu": 1.10,            # from Roberts Field reference
+        "density_lbft3": 145,      # from Roberts Field reference
         "cp_btu": 0.20             # from Roberts Field reference
     },
     "Gravel": {
         "density_lbft3": 125,      # from Roberts Field reference
-        "tc_btu": 1.15,            # from Roberts Field reference
         "cp_btu": 0.20             # from Roberts Field reference
     },
     "Marl": {
         "density_lbft3": 123,      # from CSV: 1.97 g/cm³ × 62.4 = 123
-        "tc_btu": 0.80,            # from Table 2.7 (1.38 W/mK × 0.577789)
         "cp_btu": 0.41             # from Table 2.7 (1734 J/kg·C → 0.414 BTU/lb·F)
     },
     "Siltstone": {
         "density_lbft3": 160,      # from CSV: 2.566 g/cm³ × 62.4 = 160
-        "tc_btu": 1.28,            # 2.22 W/mK × 0.577789 = 1.28
         "cp_btu": 0.19             # 795 J/kg·C × 0.000238846 = 0.19
     },
     "Mudstone": {
         "density_lbft3": 160,      # from CSV: 2.555 g/cm³ × 62.4 = 159.5
-        "tc_btu": 1.30,            # 2.25 W/mK × 0.577789 = 1.30
         "cp_btu": 0.20             # 838 J/kg·C × 0.000238846 = 0.20
     },
     "Argillite": {
         "density_lbft3": 160,      # from CSV: 2.555 g/cm³ × 62.4 = 159.5
-        "tc_btu": 1.30,            # same as mudstone basically
         "cp_btu": 0.20
     },
     "Halite": {
         "density_lbft3": 135,      # from CSV: 2.16 g/cm³ × 62.4 = 135
-        "tc_btu": 3.53,            # from Table 2.2 (6.11 W/mK × 0.577789)
         "cp_btu": 0.21             # 880 J/kg·C × 0.000238846 = 0.21
     }
 }
 
 #constants
-LOOP_CS_AREA = 0.010058354
-LOOP_OD = 1.25 #in
-BH_DEPTH = 650 #ft
-OVERBURDEN_DEPTH = 10 #ft
+LOOP_OD = 1.5 #in
+BH_DEPTH = 850 #ft
+OVERBURDEN_DEPTH = 60 #ft
 SAMPLE_INTERVAL = 2 #min
-FLOW_START_TRIGGER_POINT = 15
 AK_EIGHTEEN = 250
 
 SIG_DIGS = 8
@@ -224,26 +209,27 @@ def get_density(temp_c):
     densities = [row[1] for row in DENSITY_TABLE]
     return float(np.interp(temp_c, temps, densities))
 
-# Rock Formation Thermal Properties Database
-# Units:density_lbft3 = lbs/ft³, tc_btu = BTU/hr·ft·F, cp_btu = BTU/lbm·F
+# Rock Formation Thermal Properties Database (static in config).
+# Units: density_lbft3 = lbs/ft³, cp_btu = BTU/lbm·F
+# Thermal conductivity (tc_btu, BTU/hr·ft·F) is entered per section in the analysis form.
 
 def get_formation(name):
-    """Get thermal properties for a rock formation by name."""
+    """Get static density/cp for a rock formation by name."""
     if name not in ROCK_FORMATIONS:
         raise ValueError(f"Formation '{name}' not found. Available: {list(ROCK_FORMATIONS.keys())}")
     return ROCK_FORMATIONS[name]
 
 
 SDR11_PIPE_TABLE = {
-    0.75: 0.003996,
-    1.0:  0.006303,
-    1.25: 0.010058354,
-    1.5:  0.013211,
-    2.0:  0.020587,
-    3.0:  0.044688,
-    4.0:  0.073854,
-    6.0:  0.160150,
-    8.0:  0.271574,
+    0.75: 0.00403389223367189,
+    1.0:  0.00630295661511233,
+    1.25: 0.010058354295859,
+    1.5:  0.0131713235497161,
+    2.0:  0.0205907891039448,
+    3.0:  0.0447376756505202,
+    4.0:  0.0739426409066074,
+    6.0:  0.16028253547721,
+    8.0:  0.271623677079854,
 }
 
 def get_loop_cs_area(nominal_size):

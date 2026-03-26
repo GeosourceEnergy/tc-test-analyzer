@@ -1,8 +1,7 @@
 import numpy as np
 
 from services.licor_api import fetch_devices, fetch_sensor_data
-from config import (SAMPLE_INTERVAL, SIG_DIGS,
-                    BH_DEPTH, LOOP_OD, AK_EIGHTEEN, OVERBURDEN_DEPTH,
+from config import (SAMPLE_INTERVAL, SIG_DIGS, AK_EIGHTEEN,
                     DEVICE_SERIAL, SENSOR_MAP, get_cp, get_density, get_formation, get_loop_cs_area
 )
 
@@ -45,7 +44,7 @@ def get_elapsed_seconds(records):
     return [(r[0] - first_timestamp)/3600000 for r in records]
             
 #calculations
-def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIBUTION, START_DATE, END_DATE):
+def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_OD, OVERBURDEN_DEPTH, START_DATE, END_DATE):
     
     if data_method == 'CSV':
         from services.csv_parser import parse_licor_csv
@@ -139,11 +138,11 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
     weighted_avg_density = 0    # lbs/ft³
     weighted_avg_tc = 0         # BTU/hr·ft·F
     
-    estimated_diffusivity = 0   # ft^2/day
+    estimated_diffusivity = 0     # ft^2/day
     
-    theo_weighted_avg_calc_diff = 0      # m²/s
-    metered_weighted_avg_calc_diff = 0   # m²/s
-    gld_weighted_avg_calc_diff = 0       # m²/s
+    theo_weighted_avg_calc_diff = 0      # ft^2/day
+    metered_weighted_avg_calc_diff = 0   # ft^2/day
+    gld_weighted_avg_calc_diff = 0       # ft^2/day
     
     
     '''========== AVERAGE TEMPERATURE ============================================================================================'''
@@ -157,20 +156,15 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         avg_fluid_temp_records.append((t, avg))
 
 
-    '''========= CONDUCTIVITITY =================================================================================================='''
+    '''========= SLOPE =================================================================================================='''
 
 
-    #conductivity calculation
-    times = [t for (t, avg) in avg_fluid_temp_records if t>= 12 and t <= 40]
-    temps = [avg for (t, avg) in avg_fluid_temp_records if t>= 12 and t <= 40]
-    
-    if len(times) < 2:
-        return "Not enough data in the selected date range to compute conductivity (requires at least two points between 12 and 40 hours)."
+    times = [t for (t, avg) in avg_fluid_temp_records if t >= 12]
+    print(times[-1])
+    temps = [avg for (t, avg) in avg_fluid_temp_records if t >= 12]
 
     ln_times = np.log(times)
     slope, intercept = np.polyfit(ln_times, temps, 1)
-    dT_dlnt = slope
-    #print(f"m (⁰C) (From 12-40hr Data): {dT_dlnt:.{SIG_DIGS}g}")
     
     
     '''========= UNDISTURBED GROUND TEMPERATURE =================================================================================='''
@@ -194,10 +188,9 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         avg_undist_grnd_temp_records.append((undist_tin1_records[i][1]+undist_tin2_records[i][1])/2)
 
     average_undist_grnd_temp = np.average(avg_undist_grnd_temp_records)
-    #print(f"Undisturbed Ground Temperature (⁰C): {average_undist_grnd_temp:.{SIG_DIGS}g}")
     
     
-    '''========= POWER ==========================================================================================================='''
+    '''========= POWER AND THERMAL CONDUCTIVITY ==========================================================================================================='''
     
     
     #metered power calculations
@@ -207,7 +200,6 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         
     average_metered_power = np.average([r for (t, r) in metered_power_records if t >= 12])
     metered_k = 1000*average_metered_power/(4*np.pi*BH_DEPTH*0.3048*slope)/1.7295772056
-    #print(f"average metered power: {metered_k:.{SIG_DIGS}g}")
         
     #theoretical power calculations
     for i, t in enumerate(elapsed_times):
@@ -225,8 +217,6 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
     
     average_theo_power = np.average([r for (t, r) in theo_power_records if t >= 12])
     theo_k = 1000*average_theo_power/(4*np.pi*BH_DEPTH*0.3048*slope)/1.7295772056
-    
-    #print(f"average theoretical power: {theo_k:.{SIG_DIGS}g}")        
         
         
     '''============ BOREHOLE DIMENSIONS =========================================================================================='''
@@ -239,61 +229,44 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         bh_diameter = 3.875
         
     bh_radius = 0.0254*((5.5*OVERBURDEN_DEPTH*0.3048/(BH_DEPTH*0.3048)) + bh_diameter*(BH_DEPTH*0.3048-OVERBURDEN_DEPTH*0.3048)/(BH_DEPTH*0.3048))/2
-
+    
 
     '''============ DIFFUSIVITY =================================================================================================='''
 
     
     bh_info = [] #(weighted_capacity, weighted_density, weighted_tc, calculated_diffusivity)
     
-    for name, value in ROCK_FORMATION_DISTRIBUTION.items():
-        thickness = value['end_depth'] - value['start_depth']
-        
+    for segment in rock_formation_segments:
+        name = segment["name"]
+        thickness = segment["end_depth"] - segment["start_depth"]
+
         estimated_capacity = get_formation(name)['cp_btu']
-        weighted_capacity = estimated_capacity*thickness/BH_DEPTH
-        
+        weighted_capacity = estimated_capacity * thickness / BH_DEPTH
+
         estimated_density = get_formation(name)['density_lbft3']
-        weighted_density = estimated_density*thickness/BH_DEPTH
-        
-        estimated_tc = get_formation(name)['tc_btu']
-        weighted_tc = estimated_tc*thickness/BH_DEPTH
-        
+        weighted_density = estimated_density * thickness / BH_DEPTH
+
+        estimated_tc = segment["tc_btu"]
+        weighted_tc = estimated_tc * thickness / BH_DEPTH
+
         bh_info.append((weighted_capacity, weighted_density, weighted_tc))
 
 
     #weighted averages for borehole information calculations
-    #print("\nBorehole Information: ")
     
     weighted_avg_capacity = np.sum([r[0] for r in bh_info])
-    #print(f"    weighted average specific capacity (btu/lbm.F): {weighted_avg_capacity:.{SIG_DIGS}g}")
     
     weighted_avg_density = np.sum([r[1] for r in bh_info])
-    #print(f"    weighted average density (lbs/ft^3): {weighted_avg_density}")
     
     weighted_avg_tc = np.sum([r[2] for r in bh_info])
-    #print(f"    weighted average thermal conductivity (but/ft.hr.F): {weighted_avg_tc:.{SIG_DIGS}g}")
     
-    weighted_avg_estimated_diffusivity = 24*weighted_avg_tc/(weighted_avg_density*weighted_avg_capacity)
-    #print(f"    weighted average diffusivity (ft²/day): {weighted_avg_estimated_diffusivity:.{SIG_DIGS}g}")
+    estimated_diffusivity = 24*weighted_avg_tc/(weighted_avg_density*weighted_avg_capacity)
+    
+    #diffusivity calculation BASED ON POWER TYPE for METERED, THEO, GLD using metered_k
+    metered_weighted_avg_calc_diff = metered_k*24/weighted_avg_density/weighted_avg_capacity
+    theo_weighted_avg_calc_diff = theo_k*24/weighted_avg_density/weighted_avg_capacity
+    gld_weighted_avg_calc_diff = estimated_diffusivity
 
-    #based on rock formation disrtibution 
-    estimated_diffusivity = weighted_avg_estimated_diffusivity
-    
-    #diffusivity calculation for METERED, THEO, GLD using metered_k
-    metered_weighted_avg_calc_diff = metered_k*24/weighted_avg_density/weighted_avg_capacity*0.0000010753
-    theo_weighted_avg_calc_diff = theo_k*24/weighted_avg_density/weighted_avg_capacity*0.0000010753
-    gld_weighted_avg_calc_diff = weighted_avg_tc*24/weighted_avg_density/weighted_avg_capacity*0.0000010753
-    
-    '''
-    print("\n")
-    print("="*80)
-    print("\nSummmary of Calculated Diffusivity Values")
-    print(f"    THEO: weighted average theoretically diffusivity (m^2/s) {theo_weighted_avg_calc_diff:.{SIG_DIGS}g}")
-    print(f"    METERED: weighted average metered diffusivity (m^2/s) {metered_weighted_avg_calc_diff:.{SIG_DIGS}g}") 
-    print(f"    GLD: weighted average bore hole based diffusivity (m^2/s) {gld_weighted_avg_calc_diff:.{SIG_DIGS}g}")
-    print("\n")
-    print("="*80)
-    '''
     
     '''============ BOREHOLE RESISTANCE =========================================================================================='''
     
@@ -303,7 +276,7 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         if t == 0:
             metered_borehole_resistance_records.append((t, 0))
         else:
-            metered_borehole_resistance_records.append(((t, float(((BH_DEPTH*0.3048*(avg_fluid_temp_records[i][1]-average_undist_grnd_temp))/(1000*average_metered_power)) - (np.log((4*metered_weighted_avg_calc_diff*t*3600)/(bh_radius**2))-0.5772)/(4*np.pi*metered_k*1.7295772056))/0.5781759824)))
+            metered_borehole_resistance_records.append(((t, float(((BH_DEPTH*0.3048*(avg_fluid_temp_records[i][1]-average_undist_grnd_temp))/(1000*average_metered_power)) - (np.log((4*metered_weighted_avg_calc_diff*0.0000010753*t*3600)/(bh_radius**2))-0.5772)/(4*np.pi*metered_k*1.7295772056))/0.5781759824)))
     
     average_metered_borehole_resistance = np.average([r[1] for r in metered_borehole_resistance_records if r[0] >= 12])
 
@@ -313,40 +286,38 @@ def process(calculation_type, data_method, csv_file_path, ROCK_FORMATION_DISTRIB
         if t == 0:
             theo_borehole_resistance_records.append((t, 0))
         else:
-            theo_borehole_resistance_records.append(((t, float(((BH_DEPTH*0.3048*(avg_fluid_temp_records[i][1]-average_undist_grnd_temp))/(1000*average_theo_power)) - (np.log((4*theo_weighted_avg_calc_diff*t*3600)/(bh_radius**2))-0.5772)/(4*np.pi*theo_k*1.7295772056))/0.5781759824)))
+            theo_borehole_resistance_records.append(((t, float(((BH_DEPTH*0.3048*(avg_fluid_temp_records[i][1]-average_undist_grnd_temp))/(1000*average_theo_power)) - (np.log((4*theo_weighted_avg_calc_diff*0.0000010753*t*3600)/(bh_radius**2))-0.5772)/(4*np.pi*theo_k*1.7295772056))/0.5781759824)))
 
     average_theo_borehole_resistance = np.average([r[1] for r in theo_borehole_resistance_records if r[0] >= 12])
     
     
-    #print(f"METERED: average borehole resistance (hr.ft.F/btu) {average_metered_borehole_resistance:.{SIG_DIGS}g}")
-    #print(f"THEO: average borehole resistance (hr.ft.F/btu) {average_theo_borehole_resistance:.{SIG_DIGS}g}")
     
     
     '''============  RETURN STATEMENT ============================================================================================'''
 
-    if calculation_type == 'METERED':
-        return {
-            'undisturbed_ground_temp': round_sig(average_undist_grnd_temp),
-            'calculated_diffusivity': round_sig(metered_weighted_avg_calc_diff),
-            'estimated_diffusivity': round_sig(estimated_diffusivity),
-            'conductivity': round_sig(slope),
-            'borehole_resistance': round_sig(average_metered_borehole_resistance),
-        }
-    elif calculation_type == 'THEORETICAL':
-        return {
-        'undisturbed_ground_temp': round_sig(average_undist_grnd_temp),
-        'calculated_diffusivity': round_sig(theo_weighted_avg_calc_diff),
-        'estimated_diffusivity': round_sig(estimated_diffusivity),
-        'conductivity': round_sig(slope),
-        'borehole_resistance': round_sig(average_theo_borehole_resistance),
-        }
-    elif calculation_type == 'GLD':
-        return {
-        'undisturbed_ground_temp': round_sig(average_undist_grnd_temp),
-        'calculated_diffusivity': round_sig(gld_weighted_avg_calc_diff),
-        'estimated_diffusivity': round_sig(estimated_diffusivity),
-        'conductivity': round_sig(slope),
-        'borehole_resistance': round_sig(average_metered_borehole_resistance), #same as metered
-        }
-    else:
-        return("invalid calculation type...")
+
+    print(f'undisturbed ground temperature: {round_sig(average_undist_grnd_temp)}')
+    print(f'slope: {round_sig(slope)}')
+    print(f'metered thermal conductivity: {round_sig(metered_k)}')
+    print(f'theoretical thermal conductivity: {round_sig(theo_k)}')
+    print(f'estimated diffusivity via borehole information: {round_sig(estimated_diffusivity)}')
+    print(f'estimated diffusivity via metered k: {round_sig(metered_weighted_avg_calc_diff)}')
+    print(f'estimated diffusivity via theoretical k: {round_sig(theo_weighted_avg_calc_diff)}')
+    print(f'ambient deep earth temperature: {round_sig(average_undist_grnd_temp)}')
+    print(f'borehole resistance via metered k: {round_sig(average_metered_borehole_resistance)}')
+    print(f'borehole resistance via theoretical k: {round_sig(average_theo_borehole_resistance)}')
+    
+    
+
+    return {
+        'undisturbed_ground_temperature': round_sig(average_undist_grnd_temp),
+        'metered_thermal_conductivity': round_sig(metered_k),
+        'theoretical_thermal_conductivity': round_sig(theo_k),
+        'estimated_diffusivity_borehole_info': round_sig(estimated_diffusivity),
+        'estimated_diffusivity_metered_k': round_sig(metered_weighted_avg_calc_diff),
+        'estimated_diffusivity_theoretical_k': round_sig(theo_weighted_avg_calc_diff),
+        'ambient_deep_earth_temperature': round_sig(average_undist_grnd_temp),
+        'borehole_resistance_metered': round_sig(average_metered_borehole_resistance),
+        'borehole_resistance_theoretical': round_sig(average_theo_borehole_resistance),
+        'line_source_slope': round_sig(slope),
+    }
