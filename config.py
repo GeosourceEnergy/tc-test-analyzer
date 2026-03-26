@@ -9,11 +9,11 @@ load_dotenv()
 
 LICOR_TOKEN = os.getenv("LICOR_TOKEN")
 
+#constants
 DEVICE_SERIAL = '21329018'
-
-CALCULATION_TYPE = 'METERED'
-START_TIME = int(datetime(2026, 2, 26, 8, 24, 0, tzinfo=toronto).timestamp() * 1000)
-END_TIME = int(datetime(2026, 2, 28, 7, 22, 0, tzinfo=toronto).timestamp() * 1000)
+SAMPLE_INTERVAL = 2 #min
+AK_EIGHTEEN = 250
+SIG_DIGS = 8
 
 SENSOR_MAP = {
     'TempIn1':'20466913-1',
@@ -79,15 +79,6 @@ ROCK_FORMATIONS = {
         "cp_btu": 0.21             # 880 J/kg·C × 0.000238846 = 0.21
     }
 }
-
-#constants
-LOOP_OD = 1.5 #in
-BH_DEPTH = 850 #ft
-OVERBURDEN_DEPTH = 60 #ft
-SAMPLE_INTERVAL = 2 #min
-AK_EIGHTEEN = 250
-
-SIG_DIGS = 8
 
 #heat capacity of water lookup (Cp value)
 CP_TABLE = [

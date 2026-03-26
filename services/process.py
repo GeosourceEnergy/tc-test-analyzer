@@ -142,7 +142,6 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
     
     theo_weighted_avg_calc_diff = 0      # ft^2/day
     metered_weighted_avg_calc_diff = 0   # ft^2/day
-    gld_weighted_avg_calc_diff = 0       # ft^2/day
     
     
     '''========== AVERAGE TEMPERATURE ============================================================================================'''
@@ -262,10 +261,9 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
     
     estimated_diffusivity = 24*weighted_avg_tc/(weighted_avg_density*weighted_avg_capacity)
     
-    #diffusivity calculation BASED ON POWER TYPE for METERED, THEO, GLD using metered_k
+    #diffusivity calculation BASED ON POWER TYPE using metered_k and theo_k
     metered_weighted_avg_calc_diff = metered_k*24/weighted_avg_density/weighted_avg_capacity
     theo_weighted_avg_calc_diff = theo_k*24/weighted_avg_density/weighted_avg_capacity
-    gld_weighted_avg_calc_diff = estimated_diffusivity
 
     
     '''============ BOREHOLE RESISTANCE =========================================================================================='''
@@ -295,7 +293,9 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
     
     '''============  RETURN STATEMENT ============================================================================================'''
 
-
+    '''
+    COMMENTED OUT
+    
     print(f'undisturbed ground temperature: {round_sig(average_undist_grnd_temp)}')
     print(f'slope: {round_sig(slope)}')
     print(f'metered thermal conductivity: {round_sig(metered_k)}')
@@ -306,11 +306,10 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
     print(f'ambient deep earth temperature: {round_sig(average_undist_grnd_temp)}')
     print(f'borehole resistance via metered k: {round_sig(average_metered_borehole_resistance)}')
     print(f'borehole resistance via theoretical k: {round_sig(average_theo_borehole_resistance)}')
-    
+    '''
     
 
     return {
-        'undisturbed_ground_temperature': round_sig(average_undist_grnd_temp),
         'metered_thermal_conductivity': round_sig(metered_k),
         'theoretical_thermal_conductivity': round_sig(theo_k),
         'estimated_diffusivity_borehole_info': round_sig(estimated_diffusivity),
