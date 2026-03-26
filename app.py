@@ -2,7 +2,6 @@ import os
 import json
 from datetime import datetime
 from pathlib import Path
-from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from dotenv import load_dotenv
 
@@ -54,12 +53,12 @@ def analyze():
         if data_method == 'CSV':
             
             if 'csv_file' not in request.files:
-                return jsonify({'error: no file uploaded'}), 400
+                return jsonify({'error': 'no file uploaded'}), 400
         
             file = request.files['csv_file']
             
             if file.filename == '':
-                return jsonify({'error: no file selected'}), 400
+                return jsonify({'error': 'no file selected'}), 400
             
             if file:
                 # delete old files before saving new one
@@ -142,4 +141,7 @@ def analyze():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    if __name__ == "__main__":
+        import os
+        port = int(os.environ.get("PORT", 5000))
+        app.run(host="0.0.0.0", port=port, debug=False)
