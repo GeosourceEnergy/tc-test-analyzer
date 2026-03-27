@@ -1,6 +1,6 @@
 import numpy as np
 
-from services.licor_api import fetch_devices, fetch_sensor_data
+from src.licor_api import fetch_devices, fetch_sensor_data
 from config import (SAMPLE_INTERVAL, SIG_DIGS, AK_EIGHTEEN,
                     DEVICE_SERIAL, SENSOR_MAP, get_cp, get_density, get_formation, get_loop_cs_area
 )
@@ -47,7 +47,7 @@ def get_elapsed_seconds(records):
 def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_OD, OVERBURDEN_DEPTH, START_DATE, END_DATE):
     
     if data_method == 'CSV':
-        from services.csv_parser import parse_licor_csv
+        from src.csv_parser import parse_licor_csv
         data = parse_licor_csv(csv_file_path)
     elif data_method == 'API':
         devices = fetch_devices()

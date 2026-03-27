@@ -18,10 +18,22 @@
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
         }
+        .corner-logo {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 10;
+            opacity: 0.95;
+        }
+        .corner-logo img {
+            display: block;
+            height: 50px;
+            width: auto;
+        }
         h1 {
             color: #333;
             text-align: center;
-            margin-top: 0;
+            margin-top: 10px;
             position: relative;
             padding-bottom: 15px;
             margin-bottom: 20px;
@@ -235,6 +247,9 @@
     </style>
 </head>
 <body>
+    <div class="corner-logo">
+        <img src="static/gs_logo.png" alt="GS logo">
+    </div>
     <div class="container">
         <h1>Thermal Conductivity Analyzer</h1>
         
@@ -258,11 +273,13 @@
             <!-- CSV Upload Section -->
             <div id="csvSection" class="section active">
                 <div class="form-group">
-                    <label for="csv_file">Select CSV File:</label>
+                    <label for="csv_file">Select Cleaned CSV File:</label>
                     <input type="file" name="csv_file" accept=".csv">
-                    <small style="color: #666; display: block; margin-top: 5px;">
-                        Upload a raw .xslx export file OR a cleaned up .csv file...
+                    <small style="color: #666; display: block; margin-top: 6px;">
+                        Here is a reference file to see formatting: 
+                        <a href="static/Cleaned CSV Reference.csv" download>Cleaned CSV Reference.csv</a>
                     </small>
+                    
                 </div>
             </div>
             

@@ -6,7 +6,7 @@ import secrets
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-from services.process import process
+from src.process import process
 
 load_dotenv()
 

@@ -1,9 +1,6 @@
 import csv
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
-
-from openpyxl import load_workbook
 
 SERIAL_TO_SENSOR = {
     "20536129-1": "ScaledVoltage",
@@ -66,23 +63,19 @@ def _csv_rows(file_path):
     return headers, data_rows
 
 
-def _xlsx_rows(file_path):
-    wb = load_workbook(file_path, data_only=True)
-    ws = wb[wb.sheetnames[0]]
-    headers = [str(cell.value).strip() if cell.value is not None else "" for cell in ws[1]]
-    data_rows = [[cell.value for cell in row] for row in ws.iter_rows(min_row=2)]
-    return headers, data_rows
-
-
-def _get_headers_and_rows(file_path):
-    if Path(file_path).suffix.lower() == ".xlsx":
-        return _xlsx_rows(file_path)
-    return _csv_rows(file_path)
-
-
 def parse_licor_csv(csv_path):
     results = {}
-    headers, rows = _get_headers_and_rows(csv_path)
+    headers, rows = _csv_rows(csv_path)
+
+    # Excel exports often label the timestamp column as "Date", "Date/Time", etc.
+    # The existing logic required an exact "Date" header match, which can yield no rows.
+    normalized_headers = [str(h or "").strip().lower() for h in headers]
+    exact_date_matches = [i for i, h in enumerate(normalized_headers) if h == "date"]
+    if exact_date_matches:
+        date_idx = exact_date_matches[0]
+    else:
+        date_candidates = [i for i, h in enumerate(normalized_headers) if "date" in h]
+        date_idx = date_candidates[0] if date_candidates else (0 if headers else None)
 
     serial_to_indexes = {serial: [] for serial in SERIAL_TO_SENSOR.keys()}
     for idx, header in enumerate(headers):
@@ -118,7 +111,6 @@ def parse_licor_csv(csv_path):
         if not row:
             continue
 
-        date_idx = headers.index("Date") if "Date" in headers else None
         if date_idx is None or date_idx >= len(row):
             continue
 
@@ -129,7 +121,7 @@ def parse_licor_csv(csv_path):
             base_timestamp_ms = parsed_timestamp_ms
 
         # First pass: gather values present on this row.
-        row_values = []
+        values_by_serial = {}
         for serial, indexes in ranked_indexes.items():
             value = None
             for idx in indexes:
@@ -147,19 +139,18 @@ def parse_licor_csv(csv_path):
             except (TypeError, ValueError):
                 continue
 
-            row_values.append((serial, numeric_value))
+            values_by_serial[serial] = numeric_value
 
         # Skip rows that do not contain any target sensor values.
-        # This prevents timeline drift when export files include empty/non-target rows.
-        if not row_values:
+        if not values_by_serial:
             continue
 
-        # Normalize imported file data to a strict 2-minute interval timeline.
+        # Normalize imported CSV data to a strict 2-minute interval timeline.
         # Some exports contain irregular minute steps even though sampling is nominally 2 minutes.
         timestamp_ms = base_timestamp_ms + (sequence_index * TWO_MINUTE_MS)
         sequence_index += 1
 
-        for serial, numeric_value in row_values:
+        for serial, numeric_value in values_by_serial.items():
             results[DEVICE_SERIAL][serial]["sensors"][0]["data"][0]["records"].append(
                 [timestamp_ms, numeric_value]
             )
