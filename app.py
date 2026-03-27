@@ -31,6 +31,7 @@ def analyze():
         bh_depth = float(request.form.get('bh_depth'))
         overburden_depth = float(request.form.get('overburden_depth'))
         loop_od = float(request.form.get('loop_od'))
+        pipe_sdr = request.form.get('pipe_sdr', 'sdr11')
         
         #rock segments
         segment_count = int(request.form.get('segment_count', 0))
@@ -64,7 +65,7 @@ def analyze():
             if file:
                 original_filename = file.filename
                 suffix = Path(original_filename).suffix or ".csv"
-                unique_filename = f'{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{secrets.token_hex(4)}{suffix}'
+                unique_filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{secrets.token_hex(4)}{suffix}"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(filepath)
                 
@@ -75,6 +76,7 @@ def analyze():
                     BH_DEPTH=bh_depth,
                     LOOP_OD=loop_od,
                     OVERBURDEN_DEPTH=overburden_depth,
+                    PIPE_SDR=pipe_sdr,
                     START_DATE=None,
                     END_DATE=None
                 )
@@ -118,6 +120,7 @@ def analyze():
                 BH_DEPTH=bh_depth,
                 LOOP_OD=loop_od,
                 OVERBURDEN_DEPTH=overburden_depth,
+                PIPE_SDR=pipe_sdr,
                 START_DATE=start_timestamp,
                 END_DATE=end_timestamp
             )

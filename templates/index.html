@@ -322,8 +322,19 @@
             </div>
             
             <div class="form-group">
+                <label for="pipe_sdr">Pipe SDR:</label>
+                <select name="pipe_sdr" id="pipe_sdr">
+                    <option value="sdr11" selected>SDR11</option>
+                    <option value="sdr13.5">SDR13.5</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="loop_od">Loop OD (inches):</label>
                 <input type="number" name="loop_od" value="" step="0.1">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    SDR11 / SDR13.5 nominal sizes: 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0
+                </small>
             </div>
             
             <div class="form-group">
@@ -511,6 +522,26 @@
             
             return { valid: true, message: "" };
         }
+
+        function validateSdrLoopOd(loopOdRaw, pipeSdr) {
+            const sizeBySdr = {
+                "sdr11": [0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0],
+                "sdr13.5": [0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0],
+            };
+            const allowedSizes = sizeBySdr[pipeSdr] || sizeBySdr["sdr11"];
+            const loopOd = parseFloat(loopOdRaw);
+            if (isNaN(loopOd)) {
+                return { valid: false, message: "Loop OD must be a number." };
+            }
+            const isAllowed = allowedSizes.some(size => Math.abs(size - loopOd) < 1e-9);
+            if (!isAllowed) {
+                return {
+                    valid: false,
+                    message: `Loop OD must match a ${pipeSdr.toUpperCase()} nominal size: ${allowedSizes.join(", ")} inches.`,
+                };
+            }
+            return { valid: true, message: "" };
+        }
         
         // Handle form submission
         document.getElementById('analysisForm').addEventListener('submit', async function(e) {
@@ -518,6 +549,17 @@
             
             // Get borehole depth for validation
             const boreholeDepth = parseFloat(document.querySelector('input[name="bh_depth"]').value);
+            const loopOdRaw = document.querySelector('input[name="loop_od"]').value;
+            const pipeSdr = document.querySelector('select[name="pipe_sdr"]').value;
+
+            // Validate SDR11/SDR13.5 loop OD
+            const loopOdValidation = validateSdrLoopOd(loopOdRaw, pipeSdr);
+            if (!loopOdValidation.valid) {
+                document.getElementById('errorContent').innerHTML = `<pre>${loopOdValidation.message}</pre>`;
+                document.getElementById('error').classList.add('show');
+                document.getElementById('error').scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
             
             // Validate sections
             const validation = validateSections(boreholeDepth);

@@ -44,7 +44,7 @@ def get_elapsed_seconds(records):
     return [(r[0] - first_timestamp)/3600000 for r in records]
             
 #calculations
-def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_OD, OVERBURDEN_DEPTH, START_DATE, END_DATE):
+def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_OD, OVERBURDEN_DEPTH, PIPE_SDR, START_DATE, END_DATE):
     
     if data_method == 'CSV':
         from src.csv_parser import parse_licor_csv
@@ -159,7 +159,6 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
 
 
     times = [t for (t, avg) in avg_fluid_temp_records if t >= 12]
-    print(times[-1])
     temps = [avg for (t, avg) in avg_fluid_temp_records if t >= 12]
 
     ln_times = np.log(times)
@@ -177,7 +176,7 @@ def process(data_method, csv_file_path, rock_formation_segments, BH_DEPTH, LOOP_
     if not undist_gpm_flow_filtered:
         return "Not enough flow data in the selected date range to compute undisturbed ground temperature."
 
-    circ_time = get_loop_cs_area(LOOP_OD)*BH_DEPTH*7.48052*2/(np.median([r[1] for r in undist_gpm_flow_filtered]))
+    circ_time = get_loop_cs_area(LOOP_OD, PIPE_SDR)*BH_DEPTH*7.48052*2/(np.median([r[1] for r in undist_gpm_flow_filtered]))
     
     flow_start_idx = next(i for i, r in enumerate(flow_meter_raw_data) if r[1] > 15)
     

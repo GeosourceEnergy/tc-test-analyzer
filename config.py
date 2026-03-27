@@ -223,7 +223,29 @@ SDR11_PIPE_TABLE = {
     8.0:  0.271623677079854,
 }
 
-def get_loop_cs_area(nominal_size):
-    if nominal_size not in SDR11_PIPE_TABLE:
-        raise ValueError(f"Nominal size {nominal_size} not found.")
-    return SDR11_PIPE_TABLE[nominal_size]
+SDR135_PIPE_TABLE = {
+    0.75: 0.00435915615639669,
+    1.0:  0.00685391342673564,
+    1.25: 0.0109050135160014,
+    1.5:  0.0142785604271813,
+    2.0:  0.0223212830572972,
+    3.0:  0.0485001037356601,
+    4.0:  0.0801736408691524,
+    6.0:  0.17367907195028,
+    8.0:  0.294406550636919,
+}
+
+PIPE_TABLE = {
+    "sdr11": SDR11_PIPE_TABLE,
+    "sdr13.5": SDR135_PIPE_TABLE,
+}
+
+def get_loop_cs_area(nominal_size, pipe_sdr="sdr11"):
+    pipe_key = str(pipe_sdr).strip().lower()
+    if pipe_key not in PIPE_TABLE:
+        raise ValueError(f"Pipe SDR '{pipe_sdr}' not found. Use one of: {list(PIPE_TABLE.keys())}")
+
+    selected_table = PIPE_TABLE[pipe_key]
+    if nominal_size not in selected_table:
+        raise ValueError(f"Nominal size {nominal_size} not found for {pipe_key}.")
+    return selected_table[nominal_size]
