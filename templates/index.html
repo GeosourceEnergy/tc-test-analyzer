@@ -4,64 +4,106 @@
     <title>Thermal Analyzer</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-color: #f9f9f9;
             background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
+            color: #333;
+        }
+        /* Geohub-style outer shell */
+        .page-shell {
+            max-width: min(1400px, calc(100vw - 2rem));
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+            box-sizing: border-box;
+        }
+        @media (min-width: 640px) {
+            .page-shell {
+                padding: 24px 24px 40px;
+            }
+        }
+        @media (min-width: 768px) {
+            .page-shell {
+                padding: 24px 32px 40px;
+            }
         }
         .container {
-            max-width: 900px;
             margin: 0 auto;
             background: white;
-            padding: 30px;
+            padding: 20px 20px 28px;
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            max-width: min(900px, 100%);
         }
-        .corner-logo {
-            position: fixed;
-            top: 14px;
-            left: 14px;
-            z-index: 10;
-            opacity: 0.95;
-            pointer-events: none;
+        @media (min-width: 640px) {
+            .container {
+                padding: 32px 32px 36px;
+            }
         }
-        .corner-logo img {
+        /* Geohub dashboard header: logo | title + subtitle */
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-bottom: 24px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid #e7eef7;
+        }
+        .page-header-main {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+            min-width: 0;
+        }
+        @media (min-width: 640px) {
+            .page-header-main {
+                flex-direction: row;
+                align-items: center;
+                gap: 20px;
+            }
+        }
+        .page-logo {
             display: block;
-            height: 38px;
+            height: 36px;
             width: auto;
-            max-width: min(24vw, 150px);
+            flex-shrink: 0;
         }
-        @media (max-width: 980px) {
-            .corner-logo {
-                position: static;
-                z-index: auto;
-                margin: 0 0 10px 2px;
-                opacity: 0.9;
-            }
-            .corner-logo img {
-                height: 26px;
-                max-width: 115px;
+        @media (min-width: 640px) {
+            .page-logo {
+                height: 40px;
             }
         }
-        h1 {
+        .page-title-block {
+            min-width: 0;
+            border-left: none;
+            padding-left: 0;
+        }
+        @media (min-width: 640px) {
+            .page-title-block {
+                border-left: 1px solid #e7eef7;
+                padding-left: 20px;
+            }
+        }
+        .page-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
             color: #333;
-            text-align: center;
-            margin-top: 10px;
-            position: relative;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+            line-height: 1.25;
         }
-        h1::after {
-            content: "";
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            transform: none;
-            width: 100%;
-            height: 3px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #0A6EFF, #005bb5);
+        @media (min-width: 640px) {
+            .page-title {
+                font-size: 24px;
+            }
+        }
+        .page-subtitle {
+            margin: 6px 0 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #666;
         }
         h2 {
             color: #007BFF;
@@ -261,11 +303,17 @@
     </style>
 </head>
 <body>
-    <div class="corner-logo">
-        <img src="static/gs_logo.png" alt="GS logo">
-    </div>
+    <div class="page-shell">
     <div class="container">
-        <h1>Thermal Conductivity Analyzer</h1>
+        <header class="page-header">
+            <div class="page-header-main">
+                <img src="static/gs_logo.png" alt="Geosource Energy" class="page-logo" width="160" height="40">
+                <div class="page-title-block">
+                    <h1 class="page-title">Thermal Conductivity Analyzer</h1>
+                    <p class="page-subtitle">Automated TC Calculations — Borehole Thermal Conductivity, Diffusivity, and Resistance.</p>
+                </div>
+            </div>
+        </header>
         
         <!-- Form -->
         <form id="analysisForm" enctype="multipart/form-data">
@@ -373,6 +421,7 @@
             <h3>✗ Error</h3>
             <div id="errorContent"></div>
         </div>
+    </div>
     </div>
     
     <script>
