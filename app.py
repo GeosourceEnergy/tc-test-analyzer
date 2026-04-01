@@ -3,7 +3,11 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import secrets
-from flask import Flask, render_template, request, jsonify
+import base64
+import hashlib
+import hmac
+import json
+from flask import Flask, render_template, request, jsonify, redirect, session, url_for
 from dotenv import load_dotenv
 
 from src.process import process
@@ -12,10 +16,123 @@ load_dotenv()
 
 #initialize flask application
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+def _b64url_decode(input_str: str) -> bytes:
+    s = input_str.replace("-", "+").replace("_", "/")
+    padding = "=" * ((4 - (len(s) % 4)) % 4)
+    return base64.b64decode(s + padding)
+
+def _verify_geohub_sso_token(token: str) -> dict:
+    """
+    Token format: <base64url(payload-json)>.<base64url(hmac_sha256(payloadB64, secret))>
+    Shared secret: GEOHUB_SSO_SHARED_SECRET
+    """
+    secret = os.getenv("GEOHUB_SSO_SHARED_SECRET", "")
+    if not secret:
+        raise ValueError("GEOHUB_SSO_SHARED_SECRET is not configured")
+
+    try:
+        payload_b64, sig_b64 = token.split(".", 1)
+    except ValueError:
+        raise ValueError("Invalid token format")
+
+    expected_sig = hmac.new(
+        secret.encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    actual_sig = _b64url_decode(sig_b64)
+    if not hmac.compare_digest(expected_sig, actual_sig):
+        raise ValueError("Invalid token signature")
+
+    payload_raw = _b64url_decode(payload_b64).decode("utf-8")
+    payload = json.loads(payload_raw)
+
+    now = int(datetime.utcnow().timestamp())
+    exp = int(payload.get("exp", 0) or 0)
+    if exp and now > exp:
+        raise ValueError("Token expired")
+
+    aud_expected = os.getenv("TC_ANALYZER_SSO_AUDIENCE", "tc-analyzer")
+    if payload.get("aud") and payload.get("aud") != aud_expected:
+        raise ValueError("Invalid token audience")
+
+    iss_expected = os.getenv("TC_ANALYZER_SSO_ISSUER", "geohub")
+    if payload.get("iss") and payload.get("iss") != iss_expected:
+        raise ValueError("Invalid token issuer")
+
+    if not payload.get("sub"):
+        raise ValueError("Token missing subject")
+
+    return payload
+
+def _geohub_sso_start_url(next_path: str) -> str | None:
+    """
+    Where tc-test-analyzer should send unauthenticated users to initiate SSO.
+    Prefer explicit env; fall back to a best-effort guess from GEOHUB_URL.
+    """
+    explicit = os.getenv("GEOHUB_TC_ANALYZER_SSO_START_URL")
+    if explicit:
+        return f"{explicit}?next={next_path}"
+
+    geohub_url = os.getenv("GEOHUB_URL")
+    if geohub_url:
+        return f"{geohub_url.rstrip('/')}/api/sso/tc-analyzer?next={next_path}"
+
+    return None
+
+@app.before_request
+def require_auth():
+    path = request.path or "/"
+    if path.startswith("/static/"):
+        return None
+    if path in {"/auth/sso/callback", "/healthz"}:
+        return None
+
+    if session.get("user"):
+        return None
+
+    # If we can initiate SSO, redirect; otherwise block.
+    start = _geohub_sso_start_url(path)
+    if start:
+        return redirect(start)
+    return jsonify({"error": "Unauthorized"}), 401
+
+@app.get("/healthz")
+def healthz():
+    return "ok", 200
+
+# SSO callback endpoint (called by Geohub)
+@app.get("/auth/sso/callback")
+def sso_callback():
+    token = request.args.get("token", "")
+    next_path = request.args.get("next", "/")
+    if not next_path.startswith("/"):
+        next_path = "/"
+
+    try:
+        claims = _verify_geohub_sso_token(token)
+    except Exception as e:
+        return jsonify({"error": f"SSO failed: {str(e)}"}), 401
+
+    session["user"] = {
+        "sub": claims.get("sub"),
+        "email": claims.get("email"),
+    }
+
+    base = os.getenv("NEXT_PUBLIC_TC_ANALYZER_URL", "").rstrip("/")
+    if base:
+        return redirect(f"{base}{next_path}")
+    return redirect(next_path)
+
+@app.get("/auth/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
 
 #home page
 @app.route('/')
